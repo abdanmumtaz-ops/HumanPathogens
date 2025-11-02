@@ -1,0 +1,22 @@
+---
+title: "Lab S3 :“Connecting a Github repo site with a new RStudio project”"
+author: "Abdan"
+format:
+  html:
+    toc: true
+    toc_float: true
+    embed-resources: true
+    theme: minty
+execute: 
+  warning: false
+  message: false
+---
+
+## About Me
+
+Hi! I'm Abdan,
+
+![My Photo](images/profile.jpg)
+
+-   
+    -   [Lab 7: Data Cleaning and Visualization](Lab%207%20.html)
