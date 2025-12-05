@@ -1,0 +1,194 @@
+---
+title: "Lab 13 - Creating a detailed report with explanations from the NEON MAG dat"
+author: "Abdan"
+format:
+  html:
+    toc: true
+    toc_float: true
+    embed-resources: true
+    theme: minty
+execute: 
+  warning: false
+  message: false
+---
+
+```{r}
+library(tidyverse)
+library(viridis)
+library(ggplot2)
+library(janitor)
+library(geosphere)   
+library(ggrepel)
+library(dplyr)
+library(vegan) 
+library(tibble)
+```
+
+# **1. Introduction**
+
+This dataset contains metagenome-assembled genomes (MAGs) from NEON soil sites, along with associated metadata including taxonomy, soil chemistry, and geographic coordinates. In this analysis I explored Biogeography & Spatial Patterns, focusing on how microbial community richness changes across geographic space. I performed distance–decay analysis, compared community similarity with latitude/longitude distance, and examined how environmental variables such as soil temperature and pH relate to spatial distribution. Together, these analyses reveal how microbial diversity is structured across NEON ecological sites.
+
+# **2. MAG Richness per Site (How many genomes per site?)**
+
+```{r}
+NEON <- read_csv("NEON_soilMAGs_soilChem2.csv") |> janitor::clean_names()
+
+richness <- NEON |>
+  group_by(site_id) |>
+  summarise(
+    mag_richness = n_distinct(bin_id),
+    latitude = mean(decimal_latitude, na.rm = TRUE),
+    longitude = mean(decimal_longitude, na.rm = TRUE)
+  )
+
+richness
+
+```
+
+### **2A. Map MAG Richness Across Sites**
+
+```{r}
+ggplot(richness, aes(x = longitude, y = latitude)) +
+  geom_point(aes(size = mag_richness, color = mag_richness)) +
+  scale_color_viridis() +
+  theme_minimal() +
+  labs(
+    title = "MAG Richness (Number of Genomes) Across NEON Sites",
+    x = "Longitude", 
+    y = "Latitude",
+    size = "MAG Count",
+    color = "MAG Count"
+  )
+
+
+```
+
+This map shows which NEON locations contain more MAGs.\
+Larger and darker points = **more genomes recovered**, indicating **higher microbial richness**.
+
+# **3. Distance–Decay Analysis**
+
+```{r}
+richness <- NEON |>
+  filter(!is.na(site_id),
+         !is.na(decimal_latitude),
+         !is.na(decimal_longitude),
+         !is.na(bin_id)) |>
+  group_by(site_id) |>
+  summarise(
+    mag_richness = n_distinct(bin_id),
+    latitude      = mean(decimal_latitude,  na.rm = TRUE),
+    longitude     = mean(decimal_longitude, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+richness
+
+
+```
+
+Here I summarized the NEON soil MAG dataset at the site level. For each NEON site, I calculated the number of unique MAGs (MAG richness) and the average latitude and longitude. This gives a simple biogeographic overview of how many genomes were recovered at each location and lets me compare microbial genomic diversity across sites.
+
+### 3A. Map of MAG richness across sites
+
+```{r}
+ggplot(richness, aes(x = longitude, y = latitude)) +
+  borders("state") +
+  geom_point(aes(size = mag_richness, color = mag_richness)) +
+  scale_color_viridis_c() +
+  theme_minimal() +
+  labs(
+    title = "MAG Richness Across NEON Sites",
+    x = "Longitude",
+    y = "Latitude",
+    size = "MAG richness",
+    color = "MAG richness"
+  )
+
+
+```
+
+This map shows the spatial distribution of MAG richness across NEON sites. Each point represents a site, with point size and color indicating how many MAGs were recovered there. Sites with larger, darker points have higher MAG richness, meaning more genomes were assembled from those soils. This visualization highlights geographic hotspots of microbial genomic diversity and shows that richness is not evenly distributed across the landscape.
+
+### 3B. MAG richness vs latitude
+
+```{r}
+ggplot(richness, aes(x = latitude, y = mag_richness)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  theme_minimal() +
+  labs(
+    title = "MAG Richness vs Latitude",
+    x = "Latitude",
+    y = "MAG richness (number of unique MAGs)"
+  )
+
+```
+
+This plot examines whether MAG richness changes along a north–south gradient by plotting richness against site latitude. Each point is a NEON site, and the line shows a linear trend. If the line slopes up or down, it suggests that microbial genomic diversity is related to latitude (for example, \[higher richness at lower latitudes, or fairly constant richness across the gradient\]). This tests a basic biogeographic idea: that microbial diversity may vary with large-scale climate and environmental gradients that are correlated with latitude.
+
+## 4. Spatial Patterns + Environment: Richness vs pH and Elevation
+
+Now let’s connect spatial patterns with environment by looking at site-level MAG richness vs mean soil pH and elevation.
+
+```{r}
+
+richness_env <- NEON |>
+  filter(
+    !is.na(site_id),
+    !is.na(bin_id)
+  ) |>
+  group_by(site_id) |>
+  summarise(
+    mag_richness = n_distinct(bin_id),
+    mean_pH      = mean(soil_in_waterp_h, na.rm = TRUE),
+    mean_temp    = mean(soil_temp,        na.rm = TRUE),
+    mean_moist   = mean(soil_moisture,    na.rm = TRUE),
+    mean_elev    = mean(elevation,        na.rm = TRUE),
+    latitude     = mean(decimal_latitude,  na.rm = TRUE),
+    longitude    = mean(decimal_longitude, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+richness_env
+
+
+```
+
+### 4A. MAG richness vs mean soil pH
+
+```{r}
+ggplot(richness_env, aes(x = mean_pH, y = mag_richness)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "darkorange") +
+  theme_minimal() +
+  labs(
+    title = "MAG Richness vs Mean Soil pH",
+    x = "Mean soil pH (water)",
+    y = "MAG richness"
+  )
+
+```
+
+Here I related MAG richness to mean soil pH at each site. Each point represents one NEON site, with its average soil pH on the x-axis and MAG richness on the y-axis. The fitted line shows the overall trend between pH and richness. If richness peaks at intermediate pH values and drops at very low or high pH, that would suggest that extreme acidity or alkalinity reduces microbial genomic diversity. Overall, this plot links a key soil chemistry variable (pH) to the number of genomes recovered and helps show how environmental filtering shapes soil microbial communities.
+
+### 4B. MAG richness vs elevation
+
+```{r}
+ggplot(richness_env, aes(x = mean_elev, y = mag_richness)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "forestgreen") +
+  theme_minimal() +
+  labs(
+    title = "MAG Richness vs Elevation",
+    x = "Mean site elevation (m)",
+    y = "MAG richness"
+  )
+
+```
+
+This plot explores how MAG richness changes with elevation. Each point is a NEON site, plotted by its mean elevation and MAG richness. The trend line indicates whether richness tends to increase, decrease, or stay relatively constant with elevation. A decreasing trend would be consistent with the idea that harsher conditions at high elevation (colder temperatures, thinner soils) may limit microbial diversity, while a flat trend would suggest that elevation is less important than other factors such as local soil chemistry.
+
+## **Conclusion**
+
+In this report, I explored biogeographic patterns in soil microbial communities using NEON MAG and soil chemistry data. The distance–decay analysis showed that microbial richness becomes less similar as geographic distance increases, suggesting spatial structuring of communities across NEON sites. Environmental correlations also revealed that factors such as soil pH and temperature vary among sites and may influence microbial distributions. Together, these results highlight the importance of both geographic distance and environmental gradients in shaping soil microbial diversity. Additional analyses could further explore functional pathways or taxon-specific patterns across the NEON network.

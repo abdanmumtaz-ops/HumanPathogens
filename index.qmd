@@ -19,4 +19,6 @@ Hi! I'm Abdan,
 ![My Photo](images/profile.jpg)
 
 -   
+
     -   [Lab 7: Data Cleaning and Visualization](Lab%207%20.html)
+    -   [Lab 13 – Detailed NEON MAG Report](Lab13.html)
